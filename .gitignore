@@ -1,0 +1,62 @@
+target/
+
+### Maven wrapper (track the scripts, ignore the downloaded jar directory)
+.mvn/
+!.mvn/wrapper/maven-wrapper.jar
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+### VS Code ###
+.vscode/
+
+### Mac ###
+.DS_Store
+
+### Java ###
+*.class
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+hs_err_pid*
+replay_pid*
+
+### Logs ###
+*.log
+logs/
+
+### Env & Secrets ###
+.env
+*.env.local
+application-local.yml
+*.secret
+
+### Maven generated ###
+dependency-reduced-pom.xml
+*.versionsBackup
+
+### Spring Initializr ###
+HELP.md
