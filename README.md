@@ -1,12 +1,17 @@
 # Estadísticas ECI — Institutional Integration Metrics
 
 A Spring Boot REST API that serves aggregated, anonymized metrics for an institutional
-integration dashboard. Built with hexagonal (ports & adapters) architecture.
+integration dashboard. Built with hexagonal (ports & adapters) architecture. Also acts as
+a **BFF (Backend For Frontend)** aggregating personal statistics from multiple microservices.
 
 ## Overview
 
-This service provides authorized administrators and wellbeing personnel with quantitative
-insights into four key areas:
+This service provides two types of metrics:
+
+### Admin / Institutional Metrics
+
+Authorized administrators and wellbeing personnel can access quantitative insights into
+four key areas:
 
 - **Early Activity** — percentage of students who performed a connection or patch
   operation within a given period (new connection rate), plus those who remained inactive
@@ -19,12 +24,26 @@ All responses are strictly aggregated; the service includes a PII detection laye
 scans output for email addresses and user identifiers, preventing personal data from
 leaking into reports. Data can be retrieved as JSON or CSV.
 
+### Personal User Statistics
+
+Authenticated users can view their own personal statistics aggregated in real time from
+multiple microservices across the platform:
+
+- **Gamification** — monas (achievements) obtained, XP earned, progress, completion rate.
+- **Events** — events attended and upcoming agenda.
+- **Parches** — university social groups joined and active memberships.
+- **Profile** — career, semester, level, active status.
+
+If any upstream service is unavailable, the corresponding section is omitted (graceful
+degradation).
+
 ## Tech Stack
 
 - **Language:** Java 21
-- **Framework:** Spring Boot 3.3.5 (Web, Data JPA, Security, Validation)
+- **Framework:** Spring Boot 3.3.5 (Web, WebFlux, Data JPA, Security, Validation)
 - **Database:** H2 in-memory (development) / PostgreSQL (production)
 - **Authentication:** JWT (HMAC-SHA256) with role-based access control
+- **Service-to-Service Communication:** WebClient (reactive HTTP client)
 - **CSV Export:** OpenCSV 5.9
 - **Build:** Maven
 
@@ -35,18 +54,35 @@ The project follows a hexagonal (ports & adapters) structure:
 ```
 src/main/java/com/cybersapiens/estadisticaseci/
 ├── domain/          # Core business logic (models, services, ports)
-│   ├── model/       # NewConnectionRate, InactiveFirstSemester, MentorshipByProgram, WeeklyWelfare
-│   ├── port/in/     # Use case interfaces
-│   ├── port/out/    # Repository / data source interfaces
+│   ├── model/       # IntegrationMetrics, UserPersonalStats
+│   ├── port/in/     # GetIntegrationMetricsUseCase, GetUserPersonalStatsUseCase
+│   ├── port/out/    # ActivityDataPort, MentorshipDataPort, WelfareDataPort,
+│   │                # ExternalGamificationPort, ExternalEventPort,
+│   │                # ExternalParchePort, ExternalProfilePort
 │   └── service/     # MetricsCalculationService, AnonymizationService
 ├── application/     # Use case handlers
-│   └── handler/     # GetIntegrationMetricsHandler
+│   └── handler/     # GetIntegrationMetricsHandler, GetUserPersonalStatsHandler
 ├── infrastructure/  # Adapters (web, persistence, security, config)
-│   ├── web/         # REST controller, DTOs, mappers, CSV serializer, exception handler
+│   ├── web/         # REST controller, DTOs, mappers, CSV serializer,
+│   │               # exception handler, HTTP client adapters
 │   ├── persistence/ # JPA entities, repositories, adapters
-│   └── security/    # JWT filter, validator, payload model
+│   ├── security/    # JWT filter, validator, payload model
+│   └── config/      # DomainServiceConfig, WebClientConfig, SecurityConfig
 └── shared/          # Cross-cutting exceptions
 ```
+
+## Microservices Integration
+
+This service consumes REST APIs from the following microservices:
+
+| Service | Endpoints Used | Purpose |
+|---|---|---|
+| GamificationService | `GET /api/v1/gamification/users/{userId}/monas` | Monas, XP, progress |
+| EventService | `GET /events/agenda?userId=` | Events attended |
+| Parches-Service | `GET /api/parches/user/{userId}` | Parches joined |
+| profile-service | `GET /api/v1/users/{userId}` | Career, level, active status |
+
+Service URLs are configurable via environment variables (see Configuration section).
 
 ## Prerequisites
 
@@ -73,6 +109,29 @@ mvn spring-boot:run -Dspring.profiles.active=postgres
 
 Requires a PostgreSQL instance. Connection details are configured via environment
 variables `DB_USER` (default: `postgres`) and `DB_PASSWORD` (default: `postgres`).
+
+## Configuration
+
+### Service URLs
+
+Endpoints for external microservices are configured via environment variables
+with localhost defaults:
+
+| Variable | Default | Description |
+|---|---|---|
+| `GAMIFICATION_SERVICE_URL` | `http://localhost:8082` | GamificationService base URL |
+| `EVENT_SERVICE_URL` | `http://localhost:8081` | EventService base URL |
+| `PARCHES_SERVICE_URL` | `http://localhost:8080` | Parches-Service base URL |
+| `PROFILE_SERVICE_URL` | `http://localhost:8080` | profile-service base URL |
+
+Override for production (e.g., Azure App Settings):
+
+```
+GAMIFICATION_SERVICE_URL=https://gamification-api.azurewebsites.net
+EVENT_SERVICE_URL=https://events-api.azurewebsites.net
+PARCHES_SERVICE_URL=https://parches-api.azurewebsites.net
+PROFILE_SERVICE_URL=https://profile-api.azurewebsites.net
+```
 
 ## API Reference
 
@@ -140,6 +199,74 @@ new connection rate, inactive first semester, mentorships by program, and weekly
 | `400 Bad Request` | Missing required parameters or validation errors |
 | `200 OK` (zeroed metrics) | No data found for the given filters |
 
+### GET /api/v1/metrics/user/{userId}
+
+Returns personal statistics for a specific user by aggregating data from multiple
+microservices in real time.
+
+**Authentication:** Bearer token in the `Authorization` header. The authenticated user
+can only view their own data (`sub` claim matches `userId`) unless they have the
+`ADMIN` or `WELLBEING` role.
+
+**Required Roles:** Matching `sub` claim, `ADMIN`, or `WELLBEING`
+
+#### Path Parameters
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `userId` | `String` | Yes | User identifier |
+
+#### Response
+
+```json
+{
+  "userId": "user-123",
+  "gamification": {
+    "totalXp": 1500,
+    "totalMonasUnlocked": 5,
+    "monasInProgress": 3,
+    "monasLocked": 22,
+    "completionPercentage": 16.67,
+    "monas": [
+      {
+        "code": "PRIMER_CONTACTO",
+        "name": "Primer Contacto",
+        "rarity": "COMUN",
+        "status": "UNLOCKED",
+        "unlockedAt": "2026-07-03T10:30:00"
+      }
+    ]
+  },
+  "events": {
+    "totalAttended": 3,
+    "upcomingEvents": 1,
+    "totalEvents": 4,
+    "eventIds": ["evt-001", "evt-002", "evt-003"]
+  },
+  "parches": {
+    "totalJoined": 2,
+    "activeParches": 2
+  },
+  "profile": {
+    "xp": 1500,
+    "level": 5,
+    "isActive": true,
+    "career": "SYSTEMS_ENGINEERING",
+    "semester": 5
+  }
+}
+```
+
+If any upstream microservice is unavailable, the corresponding section is returned
+as `null` (graceful degradation).
+
+#### Error Responses
+
+| Status | Scenario |
+|---|---|
+| `403 Forbidden` | Authenticated user does not match `userId` and is not ADMIN or WELLBEING |
+| `200 OK` (partial data) | One or more upstream services unavailable |
+
 ## Authentication
 
 The API uses self-contained HMAC-SHA256 JWTs. The expected payload structure is:
@@ -167,9 +294,15 @@ The JWT secret is configured via the `jwt.secret` property (default for developm
 mvn test
 ```
 
-The test suite covers:
+The test suite covers **33 tests**:
 
-- **Controller layer:** JSON and CSV responses, role-based access (ADMIN and WELLBEING),
-  empty-data fallback.
-- **Domain services:** Anonymization (clean data passes, emails and user IDs are rejected),
-  metrics calculation using mocked data ports.
+- **Controller layer:** JSON and CSV responses for integration metrics, role-based
+  access (ADMIN and WELLBEING), empty-data fallback, personal user stats endpoint
+  (own user, admin access, partial data).
+- **Domain services:** Anonymization (clean data passes, emails and user IDs are
+  rejected), metrics calculation using mocked data ports.
+- **Application handlers:** Personal stats aggregation with parallel service calls,
+  partial failure tolerance, graceful degradation.
+- **HTTP clients:** GamificationService, EventService, Parches-Service, profile-service
+  client adapters — each tested with MockWebServer against real HTTP responses.
+- **Response mapping:** Domain-to-DTO conversion with null safety.
