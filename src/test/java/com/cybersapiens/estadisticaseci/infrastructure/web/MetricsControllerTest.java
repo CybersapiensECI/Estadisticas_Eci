@@ -2,6 +2,7 @@ package com.cybersapiens.estadisticaseci.infrastructure.web;
 
 import com.cybersapiens.estadisticaseci.domain.model.*;
 import com.cybersapiens.estadisticaseci.domain.port.in.GetIntegrationMetricsUseCase;
+import com.cybersapiens.estadisticaseci.domain.port.in.GetUserPersonalStatsUseCase;
 import com.cybersapiens.estadisticaseci.infrastructure.web.mapper.MetricsCsvSerializer;
 import com.cybersapiens.estadisticaseci.infrastructure.web.mapper.MetricsWebMapper;
 import com.cybersapiens.estadisticaseci.shared.exception.NoDataFoundException;
@@ -31,6 +32,9 @@ class MetricsControllerTest {
 
     @MockBean
     private GetIntegrationMetricsUseCase useCase;
+
+    @MockBean
+    private GetUserPersonalStatsUseCase userStatsUseCase;
 
     @Test
     void getIntegrationMetrics_shouldReturnJson() throws Exception {

@@ -24,6 +24,16 @@ spring:
     init:
       mode: always
 
+services:
+  gamification:
+    url: http://localhost:8082
+  event:
+    url: http://localhost:8081
+  parches:
+    url: http://localhost:8080
+  profile:
+    url: http://localhost:8080
+
 jwt:
   secret: dev-secret-key-for-local-testing-only
 
