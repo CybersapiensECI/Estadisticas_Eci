@@ -18,6 +18,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -110,5 +111,58 @@ class MetricsControllerTest {
                         .param("dateFrom", "2026-01-01")
                         .param("dateTo", "2026-06-30"))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(username = "user-own", roles = "USER")
+    void getUserPersonalStats_ownUser_shouldReturnOk() throws Exception {
+        var gamification = new UserPersonalStats.GamificationStats(100, 1, 0, 0, 100.0, List.of());
+        var events = new UserPersonalStats.EventStats(2, 0, 2, List.of("e1", "e2"));
+        var parches = new UserPersonalStats.ParcheStats(1, 1);
+        var profile = new UserPersonalStats.ProfileStats(100, 2, true, "ING-COMP", 3);
+        var stats = new UserPersonalStats("user-own", gamification, events, parches, profile);
+
+        when(userStatsUseCase.execute(eq("user-own"))).thenReturn(stats);
+
+        mockMvc.perform(get("/api/v1/metrics/user/{userId}", "user-own"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.userId").value("user-own"))
+                .andExpect(jsonPath("$.gamification.totalXp").value(100))
+                .andExpect(jsonPath("$.events.totalAttended").value(2))
+                .andExpect(jsonPath("$.parches.totalJoined").value(1))
+                .andExpect(jsonPath("$.profile.career").value("ING-COMP"));
+    }
+
+    @Test
+    @WithMockUser(username = "admin-user", roles = "ADMIN")
+    void getUserPersonalStats_withAdminRole_shouldReturnOk() throws Exception {
+        var gamification = new UserPersonalStats.GamificationStats(0, 0, 0, 0, 0, List.of());
+        var events = new UserPersonalStats.EventStats(0, 0, 0, List.of());
+        var parches = new UserPersonalStats.ParcheStats(0, 0);
+        var profile = new UserPersonalStats.ProfileStats(0, 1, false, null, null);
+        var stats = new UserPersonalStats("any-user", gamification, events, parches, profile);
+
+        when(userStatsUseCase.execute(eq("any-user"))).thenReturn(stats);
+
+        mockMvc.perform(get("/api/v1/metrics/user/{userId}", "any-user"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.userId").value("any-user"));
+    }
+
+    @Test
+    @WithMockUser(username = "user-partial", roles = "USER")
+    void getUserPersonalStats_whenServiceFails_shouldReturnPartialData() throws Exception {
+        var events = new UserPersonalStats.EventStats(1, 0, 1, List.of("evt-1"));
+        var parches = new UserPersonalStats.ParcheStats(0, 0);
+        var profile = new UserPersonalStats.ProfileStats(0, 1, false, null, null);
+        var stats = new UserPersonalStats("user-partial", null, events, parches, profile);
+
+        when(userStatsUseCase.execute(eq("user-partial"))).thenReturn(stats);
+
+        mockMvc.perform(get("/api/v1/metrics/user/{userId}", "user-partial"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.gamification").doesNotExist())
+                .andExpect(jsonPath("$.events.totalAttended").value(1))
+                .andExpect(jsonPath("$.parches.totalJoined").value(0));
     }
 }
