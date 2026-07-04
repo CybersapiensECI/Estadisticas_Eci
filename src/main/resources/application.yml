@@ -34,13 +34,13 @@ spring:
 
 services:
   gamification:
-    url: ${SERVICES_GAMIFICATION_URL:http://localhost:8082}
+    url: "${SERVICES_GAMIFICATION_URL:http://localhost:8082}"
   event:
-    url: ${SERVICES_EVENT_URL:http://localhost:8081}
+    url: "${SERVICES_EVENT_URL:http://localhost:8081}"
   parches:
-    url: ${SERVICES_PARCHES_URL:http://localhost:8080}
+    url: "${SERVICES_PARCHES_URL:http://localhost:8080}"
   profile:
-    url: ${SERVICES_PROFILE_URL:https://alphaeci-profile-service-prod.icycoast-fc5305af.eastus.azurecontainerapps.io}
+    url: "${SERVICES_PROFILE_URL:https://alphaeci-profile-service-prod.icycoast-fc5305af.eastus.azurecontainerapps.io}"
 
 jwt:
   secret: dev-secret-key-for-local-testing-only
@@ -52,7 +52,7 @@ spring:
       on-profile: postgres
 
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/estadisticas_eci}
+    url: "${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/estadisticas_eci}"
     username: ${DB_USER:postgres}
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver

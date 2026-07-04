@@ -28,17 +28,22 @@ else
 fi
 
 # ============ CONTAINER REGISTRY ============
-EXISTING_ACR=$(az acr list --resource-group $RESOURCE_GROUP --query "[0].name" -o tsv)
-if [ -n "$EXISTING_ACR" ]; then
-    ACR_NAME=$EXISTING_ACR
-    echo ">>> Reutilizando ACR existente: $ACR_NAME"
+# If ACR_NAME is passed and already exists in Azure, use it without creating it
+if [ -n "$ACR_NAME" ] && az acr show --name "$ACR_NAME" >/dev/null 2>&1; then
+    echo ">>> Reutilizando ACR existente globalmente: $ACR_NAME"
 else
-    if [ -z "$ACR_NAME" ]; then
-        RANDOM_VAL=$((RANDOM % 90000 + 10000))
-        ACR_NAME="cybersapiensacr${ENV}${RANDOM_VAL}"
+    EXISTING_ACR=$(az acr list --resource-group $RESOURCE_GROUP --query "[0].name" -o tsv)
+    if [ -n "$EXISTING_ACR" ]; then
+        ACR_NAME=$EXISTING_ACR
+        echo ">>> Reutilizando ACR existente en el grupo: $ACR_NAME"
+    else
+        if [ -z "$ACR_NAME" ]; then
+            RANDOM_VAL=$((RANDOM % 90000 + 10000))
+            ACR_NAME="cybersapiensacr${ENV}${RANDOM_VAL}"
+        fi
+        echo ">>> Creando Azure Container Registry: $ACR_NAME"
+        az acr create --resource-group $RESOURCE_GROUP --name $ACR_NAME --sku Basic --admin-enabled true
     fi
-    echo ">>> Creando Azure Container Registry: $ACR_NAME"
-    az acr create --resource-group $RESOURCE_GROUP --name $ACR_NAME --sku Basic --admin-enabled true
 fi
 
 # ============ ACA ENVIRONMENT ============
