@@ -15,7 +15,7 @@ echo "================================================"
 # ============ CONFIG ============
 # Default to sharing the same resource group and environment to respect Azure Student limits
 RESOURCE_GROUP=${AZURE_RESOURCE_GROUP:-"cybersapiens-rg"}
-LOCATION="eastus2"
+LOCATION=${AZURE_LOCATION:-"eastus2"}
 ACA_ENV=${AZURE_ACA_ENV:-"cybersapiens-env"}
 PG_NAME=${AZURE_PG_NAME:-"cybersapiens-pg"}
 PG_PASS=${PG_PASSWORD:-"CyberSapiens2024!"}
@@ -61,7 +61,7 @@ if [ -n "$EXISTING_PG" ]; then
     PG_NAME=$EXISTING_PG
     echo ">>> Reutilizando PostgreSQL Server existente: $PG_NAME"
 else
-    echo ">>> Creando PostgreSQL Flexible Server: $PG_NAME (B1ms)..."
+    echo ">>> Creando PostgreSQL Flexible Server: $PG_NAME (B1ms) en $LOCATION..."
     az postgres flexible-server create \
       --resource-group $RESOURCE_GROUP \
       --name $PG_NAME \
