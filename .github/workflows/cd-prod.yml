@@ -24,6 +24,7 @@ jobs:
         env:
           PG_PASSWORD: ${{ secrets.PG_PASS_PROD }}
           ACR_NAME: ${{ vars.ACR_NAME }}
+          AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
         run: |
           chmod +x deploy-env.sh
           ./deploy-env.sh prod
