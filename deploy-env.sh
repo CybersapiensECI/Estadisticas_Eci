@@ -15,7 +15,7 @@ echo "================================================"
 # ============ CONFIG ============
 # Default to sharing the same resource group and environment to respect Azure Student limits
 RESOURCE_GROUP=${AZURE_RESOURCE_GROUP:-"cybersapiens-rg"}
-LOCATION=${AZURE_LOCATION:-"eastus2"}
+LOCATION=${AZURE_LOCATION:-"eastus"}
 ACA_ENV=${AZURE_ACA_ENV:-"cybersapiens-env"}
 PG_NAME=${AZURE_PG_NAME:-"cybersapiens-pg"}
 PG_PASS=${PG_PASSWORD:-"CyberSapiens2024!"}
