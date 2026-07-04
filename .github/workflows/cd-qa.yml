@@ -1,0 +1,28 @@
+name: CD QA Deploy (Estadisticas)
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  deploy-qa:
+    name: Deploy Estadisticas to QA
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Run Deploy Script for QA
+        env:
+          PG_PASSWORD: ${{ secrets.PG_PASS_QA }}
+          ACR_NAME: ${{ vars.ACR_NAME }}
+        run: |
+          chmod +x deploy-env.sh
+          ./deploy-env.sh qa

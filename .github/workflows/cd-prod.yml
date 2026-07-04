@@ -1,0 +1,29 @@
+name: CD Prod Deploy (Estadisticas)
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  deploy-prod:
+    name: Deploy Estadisticas to Prod
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Run Deploy Script for Prod
+        env:
+          PG_PASSWORD: ${{ secrets.PG_PASS_PROD }}
+          ACR_NAME: ${{ vars.ACR_NAME }}
+        run: |
+          chmod +x deploy-env.sh
+          ./deploy-env.sh prod
