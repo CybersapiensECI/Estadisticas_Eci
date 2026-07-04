@@ -55,46 +55,23 @@ else
     echo ">>> Reutilizando Container Apps Environment: $ACA_ENV"
 fi
 
-# ============ POSTGRESQL ============
-EXISTING_PG=$(az postgres flexible-server list --resource-group $RESOURCE_GROUP --query "[0].name" -o tsv)
-if [ -n "$EXISTING_PG" ]; then
-    PG_NAME=$EXISTING_PG
-    echo ">>> Reutilizando PostgreSQL Server existente: $PG_NAME"
-else
-    echo ">>> Creando PostgreSQL Flexible Server: $PG_NAME (B1ms) en $LOCATION..."
-    az postgres flexible-server create \
+# ============ POSTGRESQL (Container App) ============
+if ! az containerapp show --name cybersapiens-pg --resource-group $RESOURCE_GROUP >/dev/null 2>&1; then
+    echo ">>> Creando PostgreSQL como Container App (cybersapiens-pg)..."
+    az containerapp create \
+      --name cybersapiens-pg \
       --resource-group $RESOURCE_GROUP \
-      --name $PG_NAME \
-      --location $LOCATION \
-      --sku-name Standard_B1ms --tier Burstable \
-      --storage-size 32 \
-      --admin-user postgres \
-      --admin-password "$PG_PASS" \
-      --public-access 0.0.0.0 \
-      --yes
-fi
-
-# ============ DATABASES ============
-if [ "$ENV" = "prod" ]; then
-    ESTA_DB="estadisticas_db"
+      --environment $ACA_ENV \
+      --image postgres:15-alpine \
+      --cpu 0.5 --memory 1.0Gi \
+      --target-port 5432 \
+      --ingress internal \
+      --env-vars POSTGRES_USER=postgres POSTGRES_PASSWORD="$PG_PASS" POSTGRES_DB=postgres
 else
-    ESTA_DB="estadisticas_db_$ENV"
+    echo ">>> Reutilizando PostgreSQL Container App existente: cybersapiens-pg"
 fi
 
-echo ">>> Asegurando base de datos $ESTA_DB..."
-az postgres flexible-server db create \
-  --resource-group $RESOURCE_GROUP \
-  --server-name $PG_NAME \
-  -n $ESTA_DB || true
-
-echo ">>> Configurando regla de firewall AllowAzureServices..."
-az postgres flexible-server firewall-rule create \
-  --resource-group $RESOURCE_GROUP \
-  --server-name $PG_NAME \
-  --name AllowAzureServices \
-  --start-ip-address 0.0.0.0 --end-ip-address 0.0.0.0 || true
-
-PG_HOST=$(az postgres flexible-server show -g $RESOURCE_GROUP -n $PG_NAME --query fullyQualifiedDomainName -o tsv)
+PG_HOST="cybersapiens-pg"
 echo ">>> PostgreSQL host: $PG_HOST"
 
 # ============ BUILD & PUSH IMAGES ============
@@ -140,7 +117,7 @@ az containerapp create \
   --min-replicas 0 --max-replicas 2 \
   --env-vars \
     SPRING_PROFILES_ACTIVE=postgres \
-    SPRING_DATASOURCE_URL="jdbc:postgresql://$PG_HOST:5432/$ESTA_DB?sslmode=require" \
+    SPRING_DATASOURCE_URL="jdbc:postgresql://$PG_HOST:5432/postgres" \
     DB_USER=postgres \
     DB_PASSWORD="$PG_PASS" \
     SERVICES_GAMIFICATION_URL="https://$GAMI_URL" \
