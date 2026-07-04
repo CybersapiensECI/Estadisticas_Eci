@@ -66,9 +66,14 @@ if ! az containerapp show --name cybersapiens-pg --resource-group $RESOURCE_GROU
       --cpu 0.5 --memory 1.0Gi \
       --target-port 5432 \
       --ingress internal \
+      --min-replicas 1 --max-replicas 1 \
       --env-vars POSTGRES_USER=postgres POSTGRES_PASSWORD="$PG_PASS" POSTGRES_DB=postgres
 else
-    echo ">>> Reutilizando PostgreSQL Container App existente: cybersapiens-pg"
+    echo ">>> Reutilizando PostgreSQL Container App existente y asegurando replicas..."
+    az containerapp update \
+      --name cybersapiens-pg \
+      --resource-group $RESOURCE_GROUP \
+      --min-replicas 1 --max-replicas 1
 fi
 
 PG_HOST="cybersapiens-pg"
@@ -88,11 +93,32 @@ docker push "$ACR_NAME.azurecr.io/estadisticas-eci:$IMAGE_TAG"
 
 # ============ ESTABLECER NOMBRES POR AMBIENTE ============
 if [ "$ENV" = "prod" ]; then
-    GAMIFICATION_APP_NAME="gamification-service"
+    RABBITMQ_APP_NAME="rabbitmq"
     ESTADISTICAS_APP_NAME="estadisticas-eci"
+    GAMIFICATION_APP_NAME="gamification-service"
 else
-    GAMIFICATION_APP_NAME="gamification-service-$ENV"
+    RABBITMQ_APP_NAME="rabbitmq-$ENV"
     ESTADISTICAS_APP_NAME="estadisticas-eci-$ENV"
+    GAMIFICATION_APP_NAME="gamification-service-$ENV"
+fi
+
+# ============ RABBITMQ ============
+echo ">>> Desplegando RabbitMQ ($RABBITMQ_APP_NAME)..."
+if ! az containerapp show --name $RABBITMQ_APP_NAME --resource-group $RESOURCE_GROUP >/dev/null 2>&1; then
+    az containerapp create \
+      --resource-group $RESOURCE_GROUP \
+      --environment $ACA_ENV \
+      --name $RABBITMQ_APP_NAME \
+      --image rabbitmq:3-alpine \
+      --cpu 0.25 --memory 0.5Gi \
+      --min-replicas 1 --max-replicas 1 \
+      --env-vars RABBITMQ_DEFAULT_USER=guest RABBITMQ_DEFAULT_PASS=guest
+else
+    echo ">>> Reutilizando RabbitMQ existente y asegurando replicas..."
+    az containerapp update \
+      --name $RABBITMQ_APP_NAME \
+      --resource-group $RESOURCE_GROUP \
+      --min-replicas 1 --max-replicas 1
 fi
 
 # ============ GET GAMIFICATION URL ============
