@@ -13,10 +13,11 @@ echo "  Estadisticas_Eci - Ambiente: $ENV"
 echo "================================================"
 
 # ============ CONFIG ============
-RESOURCE_GROUP="cybersapiens-$ENV-rg"
+# Default to sharing the same resource group and environment to respect Azure Student limits
+RESOURCE_GROUP=${AZURE_RESOURCE_GROUP:-"cybersapiens-rg"}
 LOCATION="eastus2"
-ACA_ENV="cybersapiens-$ENV-env"
-PG_NAME="cybersapiens-$ENV-pg"
+ACA_ENV=${AZURE_ACA_ENV:-"cybersapiens-env"}
+PG_NAME=${AZURE_PG_NAME:-"cybersapiens-pg"}
 PG_PASS=${PG_PASSWORD:-"CyberSapiens2024!"}
 
 # ============ RESOURCE GROUP ============
@@ -73,11 +74,18 @@ else
       --yes
 fi
 
-echo ">>> Asegurando base de datos estadisticas_db..."
+# ============ DATABASES ============
+if [ "$ENV" = "prod" ]; then
+    ESTA_DB="estadisticas_db"
+else
+    ESTA_DB="estadisticas_db_$ENV"
+fi
+
+echo ">>> Asegurando base de datos $ESTA_DB..."
 az postgres flexible-server db create \
   --resource-group $RESOURCE_GROUP \
   --server-name $PG_NAME \
-  -n estadisticas_db || true
+  -n $ESTA_DB || true
 
 echo ">>> Configurando regla de firewall AllowAzureServices..."
 az postgres flexible-server firewall-rule create \
@@ -132,7 +140,7 @@ az containerapp create \
   --min-replicas 0 --max-replicas 2 \
   --env-vars \
     SPRING_PROFILES_ACTIVE=postgres \
-    SPRING_DATASOURCE_URL="jdbc:postgresql://$PG_HOST:5432/estadisticas_db?sslmode=require" \
+    SPRING_DATASOURCE_URL="jdbc:postgresql://$PG_HOST:5432/$ESTA_DB?sslmode=require" \
     DB_USER=postgres \
     DB_PASSWORD="$PG_PASS" \
     SERVICES_GAMIFICATION_URL="https://$GAMI_URL" \
