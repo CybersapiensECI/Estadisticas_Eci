@@ -1,5 +1,5 @@
 # Estadísticas ECI — Institutional Integration Metrics
-
+...
 A Spring Boot REST API that serves aggregated, anonymized metrics for an institutional
 integration dashboard. Built with hexagonal (ports & adapters) architecture. Also acts as
 a **BFF (Backend For Frontend)** aggregating personal statistics from multiple microservices.
