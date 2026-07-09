@@ -86,6 +86,11 @@ fi
 PG_HOST="cybersapiens-pg"
 echo ">>> PostgreSQL host: $PG_HOST"
 
+# PostgreSQL speaks a raw TCP wire protocol; the default "Auto" ingress transport
+# assumes HTTP and silently blackholes connections, so it must be forced to tcp.
+echo ">>> Asegurando ingress TCP para PostgreSQL..."
+az containerapp ingress update --name cybersapiens-pg --resource-group $RESOURCE_GROUP --type internal --target-port 5432 --transport tcp >/dev/null 2>&1 || true
+
 echo ">>> Asegurando base de datos dedicada estadisticas_db..."
 az containerapp exec --resource-group $RESOURCE_GROUP --name cybersapiens-pg --command "createdb -U postgres estadisticas_db" >/dev/null 2>&1 || true
 
@@ -121,6 +126,8 @@ if ! az containerapp show --name $RABBITMQ_APP_NAME --resource-group $RESOURCE_G
       --name $RABBITMQ_APP_NAME \
       --image rabbitmq:3-alpine \
       --cpu 0.25 --memory 0.5Gi \
+      --target-port 5672 \
+      --ingress internal \
       --min-replicas 1 --max-replicas 1 \
       --env-vars RABBITMQ_DEFAULT_USER=guest RABBITMQ_DEFAULT_PASS=guest
 else
@@ -137,6 +144,11 @@ else
         fi
     done
 fi
+
+# AMQP is a raw TCP wire protocol; the default "Auto" ingress transport assumes
+# HTTP, and without ingress at all the app has no internal DNS name to connect to.
+echo ">>> Asegurando ingress TCP para RabbitMQ..."
+az containerapp ingress enable --name $RABBITMQ_APP_NAME --resource-group $RESOURCE_GROUP --type internal --target-port 5672 --transport tcp >/dev/null 2>&1 || true
 
 # ============ GET GAMIFICATION URL ============
 echo ">>> Obteniendo URL de GamificationService..."
