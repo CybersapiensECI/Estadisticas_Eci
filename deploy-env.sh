@@ -91,8 +91,15 @@ echo ">>> PostgreSQL host: $PG_HOST"
 echo ">>> Asegurando ingress TCP para PostgreSQL..."
 az containerapp ingress update --name cybersapiens-pg --resource-group $RESOURCE_GROUP --type internal --target-port 5432 --transport tcp >/dev/null 2>&1 || true
 
-echo ">>> Asegurando base de datos dedicada estadisticas_db..."
-az containerapp exec --resource-group $RESOURCE_GROUP --name cybersapiens-pg --command "createdb -U postgres estadisticas_db" >/dev/null 2>&1 || true
+# QA gets its own database so it never shares state with prod on the same PG instance.
+if [ "$ENV" = "prod" ]; then
+    ESTA_DB_NAME="estadisticas_db"
+else
+    ESTA_DB_NAME="estadisticas_db_$ENV"
+fi
+
+echo ">>> Asegurando base de datos dedicada $ESTA_DB_NAME..."
+az containerapp exec --resource-group $RESOURCE_GROUP --name cybersapiens-pg --command "createdb -U postgres $ESTA_DB_NAME" >/dev/null 2>&1 || true
 
 # ============ BUILD & PUSH IMAGES ============
 echo ">>> Iniciando sesión en Azure Container Registry..."
@@ -172,7 +179,7 @@ az containerapp create \
   --min-replicas 0 --max-replicas 2 \
   --env-vars \
     SPRING_PROFILES_ACTIVE=postgres \
-    SPRING_DATASOURCE_URL="jdbc:postgresql://$PG_HOST:5432/estadisticas_db" \
+    SPRING_DATASOURCE_URL="jdbc:postgresql://$PG_HOST:5432/$ESTA_DB_NAME" \
     DB_USER=postgres \
     DB_PASSWORD="$PG_PASS" \
     SERVICES_GAMIFICATION_URL="https://$GAMI_URL" \
