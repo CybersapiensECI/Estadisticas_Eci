@@ -70,14 +70,24 @@ if ! az containerapp show --name cybersapiens-pg --resource-group $RESOURCE_GROU
       --env-vars POSTGRES_USER=postgres POSTGRES_PASSWORD="$PG_PASS" POSTGRES_DB=postgres
 else
     echo ">>> Reutilizando PostgreSQL Container App existente y asegurando replicas..."
-    az containerapp update \
-      --name cybersapiens-pg \
-      --resource-group $RESOURCE_GROUP \
-      --min-replicas 1 --max-replicas 1
+    for i in {1..5}; do
+        if az containerapp update \
+          --name cybersapiens-pg \
+          --resource-group $RESOURCE_GROUP \
+          --min-replicas 1 --max-replicas 1; then
+            break
+        else
+            echo ">>> [Reintento $i/5] La base de datos está ocupada. Esperando 15 segundos..."
+            sleep 15
+        fi
+    done
 fi
 
 PG_HOST="cybersapiens-pg"
 echo ">>> PostgreSQL host: $PG_HOST"
+
+echo ">>> Asegurando base de datos dedicada estadisticas_db..."
+az containerapp exec --resource-group $RESOURCE_GROUP --name cybersapiens-pg --command "createdb -U postgres estadisticas_db" >/dev/null 2>&1 || true
 
 # ============ BUILD & PUSH IMAGES ============
 echo ">>> Iniciando sesión en Azure Container Registry..."
@@ -115,10 +125,17 @@ if ! az containerapp show --name $RABBITMQ_APP_NAME --resource-group $RESOURCE_G
       --env-vars RABBITMQ_DEFAULT_USER=guest RABBITMQ_DEFAULT_PASS=guest
 else
     echo ">>> Reutilizando RabbitMQ existente y asegurando replicas..."
-    az containerapp update \
-      --name $RABBITMQ_APP_NAME \
-      --resource-group $RESOURCE_GROUP \
-      --min-replicas 1 --max-replicas 1
+    for i in {1..5}; do
+        if az containerapp update \
+          --name $RABBITMQ_APP_NAME \
+          --resource-group $RESOURCE_GROUP \
+          --min-replicas 1 --max-replicas 1; then
+            break
+        else
+            echo ">>> [Reintento $i/5] RabbitMQ está ocupado. Esperando 15 segundos..."
+            sleep 15
+        fi
+    done
 fi
 
 # ============ GET GAMIFICATION URL ============
@@ -143,7 +160,7 @@ az containerapp create \
   --min-replicas 0 --max-replicas 2 \
   --env-vars \
     SPRING_PROFILES_ACTIVE=postgres \
-    SPRING_DATASOURCE_URL="jdbc:postgresql://$PG_HOST:5432/postgres" \
+    SPRING_DATASOURCE_URL="jdbc:postgresql://$PG_HOST:5432/estadisticas_db" \
     DB_USER=postgres \
     DB_PASSWORD="$PG_PASS" \
     SERVICES_GAMIFICATION_URL="https://$GAMI_URL" \
