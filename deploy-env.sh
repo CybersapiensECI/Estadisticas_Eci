@@ -183,7 +183,9 @@ az containerapp create \
     DB_USER=postgres \
     DB_PASSWORD="$PG_PASS" \
     SERVICES_GAMIFICATION_URL="https://$GAMI_URL" \
-    PROFILE_SERVICE_URL="https://alphaeci-profile-service-prod.icycoast-fc5305af.eastus.azurecontainerapps.io"
+    SERVICES_PROFILE_URL="https://alphaeci-profile-service-prod.icycoast-fc5305af.eastus.azurecontainerapps.io" \
+    SERVICES_EVENT_URL="https://eventservice-alpha-2026.azurewebsites.net" \
+    SERVICES_PARCHES_URL="https://parches-service-prod.lemonwater-bf7b63a9.eastus2.azurecontainerapps.io"
 
 ESTA_URL=$(az containerapp show -g $RESOURCE_GROUP -n $ESTADISTICAS_APP_NAME --query properties.configuration.ingress.fqdn -o tsv)
 
