@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
@@ -33,12 +34,16 @@ public final class JwtValidator {
             Map<String, Object> claims = MAPPER.readValue(payloadJson, Map.class);
 
             String subject = (String) claims.get("sub");
-            List<String> roles;
+            List<String> roles = new ArrayList<>();
+
+            Object roleObj = claims.get("role");
+            if (roleObj instanceof String roleStr && !roleStr.isBlank()) {
+                roles.add(roleStr);
+            }
+
             Object rolesObj = claims.get("roles");
             if (rolesObj instanceof List<?> roleList) {
-                roles = roleList.stream().map(Object::toString).toList();
-            } else {
-                roles = List.of();
+                roleList.forEach(r -> roles.add(r.toString()));
             }
 
             return new JwtPayload(subject, roles);
